@@ -1,8 +1,8 @@
 {
-  "mode": "minimal",
+  "mode": "quote",
   "intro": "",
-  "quote": "",
-  "attribution": "",
+  "quote": "“No good is certain, but the steadfast mind, The undivided will to seek the good.”",
+  "attribution": "— George Eliot, The Spanish Gypsy (1868)",
   "portrait": "/images/ai-headshot-nov12-2026-8e57663a2e7f4a3e.webp",
   "portraitAlt": "Me",
   "portraitStyle": "natural",
