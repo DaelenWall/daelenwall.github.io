@@ -32,7 +32,7 @@ npm run preview
 
 ## One-time GitHub Pages setup
 
-The existing origin was inspected during implementation and points to `https://github.com/DaelenWall/daelenwall.github.io.git`. Nothing in the site depends on hardcoding that account. No initial commit, remote push, repository visibility change, or public deployment is performed without approval.
+The approved initial installation is published at **https://daelenwall.github.io/** from `https://github.com/DaelenWall/daelenwall.github.io.git`. GitHub Pages is configured to use Actions, HTTPS is enabled, and the initial workflow's build and deployment succeeded. This Mac's Git author and existing credentials were verified by the successful initial push. You can begin with **Open Studio.command**; the steps below are a reference for another Mac, repository, or fresh installation. Nothing in the site depends on hardcoding that account.
 
 1. Confirm that this is the repository you want to publish, and that it is public. Do not put secrets or private documents in it. Public source, public media, and commit history are inspectable.
 2. Configure Git's author name and your chosen GitHub email **once**, if they are missing. A GitHub-provided no-reply address is an option. Use your actual chosen values:

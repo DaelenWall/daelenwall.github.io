@@ -56,6 +56,7 @@ Verified on November 12, 2026 with Node 24.12.0 and npm 11.6.2:
 - Four Chrome end-to-end workflows: passed. These exercise the editor and real production builds under a project URL prefix, including publishing each content type independently.
 - Phone (390 px), tablet (768 px), and desktop (1440 px) public routes: no horizontal overflow; automated WCAG A/AA checks passed. Populated article pages, studio dashboard, and article editor also passed automated accessibility checks.
 - Browser-tested date preservation, live Markdown preview, private autosave/reopen, image optimization/promotion, featured selection, search, filtering, sorting, and reduced-motion behavior.
-- Temporary authored fixtures and generated test sites were removed. The delivered public content remains empty. GitHub deployment requires the owner's approval and initial account setup; local test success alone does not verify a remote deployment.
+- Temporary authored fixtures and generated test sites were removed. The delivered public content remains empty.
+- The owner approved the initial commit, push, and Pages setup. GitHub confirmed the Astro workflow's build and `deploy` job for initial commit `dc20a80`; Pages uses Actions with HTTPS enabled at https://daelenwall.github.io/. Local test success alone was not treated as deployment verification.
 
 Automated accessibility checks supplement keyboard and visual review; they are not a certification of every possible future user-authored page.
