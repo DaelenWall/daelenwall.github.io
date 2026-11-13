@@ -1,0 +1,5 @@
+---
+import Shell from '../layouts/Shell.astro';
+import { contact } from '../lib/content';
+---
+<Shell title="Contact"><header class="page-heading"><div class="eyebrow"><span class="signal"></span>Contact</div><h1>Contact<span class="accent">.</span></h1><span class="heading-mark" aria-hidden="true">↗</span></header><div class="contact-links">{contact.email && <a href={`mailto:${contact.email}`}><span>Email</span><span>{contact.email}</span><span aria-hidden="true">↗</span></a>}{contact.links.map(link => <a href={link.url} rel="noopener noreferrer"><span>{link.label}</span><span class="contact-url">{new URL(link.url).hostname}</span><span aria-hidden="true">↗</span></a>)}</div>{!contact.email && !contact.links.length && <div class="empty-state compact-empty"><span class="empty-symbol" aria-hidden="true">✳</span></div>}</Shell>

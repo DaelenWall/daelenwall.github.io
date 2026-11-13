@@ -1,0 +1,8 @@
+{
+  "name": "Daelen Wall",
+  "description": "",
+  "categories": ["Football", "Technology", "Business", "Ideas"],
+  "navigation": { "Home": "Home", "Writing": "Writing", "Projects": "Projects", "About": "About", "Contact": "Contact" },
+  "socialImage": "",
+  "socialImageAlt": ""
+}

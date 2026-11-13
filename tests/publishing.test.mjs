@@ -1,0 +1,117 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import sharp from 'sharp';
+import { Store } from '../studio/store.mjs';
+import { Publisher } from '../studio/publisher.mjs';
+import { fixture, git, command, entry, treeText } from './helpers.mjs';
+import { checkPublic } from '../scripts/check-public.mjs';
+
+test('private save → real build → selective commit/push → private revision → unpublish', async t => {
+  const f = await fixture(); t.after(f.cleanup);
+  const store = new Store(f.root); await store.init(); const publisher = new Publisher(store);
+  const image = await sharp({ create: { width: 20, height: 20, channels: 3, background: '#832b17' } }).png().toBuffer();
+  const selectedImage = await store.upload(image, 'selected-photo.png');
+  const unusedImage = await store.upload(await sharp(image).tint('#0022dd').png().toBuffer(), 'private-unused.png');
+  const other = await store.save('writing', 'private-other', entry({ title: 'PRIVATE_CANARY_OTHER', slug: 'private-other', body: 'PRIVATE_CANARY_BODY_OTHER', coverImage: unusedImage.url }), 0);
+  let chosen = await store.save('writing', 'chosen', entry({ coverImage: selectedImage.url, coverAlt: 'Temporary test image', displayDate: '1998-01-03', writtenAt: '1997-12-31', body: `Temporary fixture.\n\n![Fixture image](${selectedImage.url})` }), 0);
+  assert.equal((await store.load('writing', 'chosen')).data.displayDate, '1998-01-03');
+  assert.equal(await git(f.root, 'status', '--porcelain'), '');
+  assert.equal(await git(f.root, 'check-ignore', '.studio-local/drafts/writing--private-other.json'), '.studio-local/drafts/writing--private-other.json');
+  assert.equal((await store.list('writing')).length, 2);
+  await command(f.root, 'npm', ['run', 'build']);
+  assert.doesNotMatch(await treeText(path.join(f.root, 'dist')), /PRIVATE_CANARY|temporary-test-fixture|studio-media/);
+  const result = await publisher.publish('writing', 'chosen', chosen.version);
+  assert.equal(result.state, 'pushed');
+  const committed = (await git(f.root, 'show', '--pretty=', '--name-only', 'HEAD')).split('\n');
+  assert.equal(committed.length, 2); assert.ok(committed.includes('src/content/writing/chosen.md'));
+  assert.ok(committed.some(file => file.startsWith('public/images/selected-photo-')));
+  assert.ok(!committed.some(file => file.includes('private')));
+  assert.equal(await git(f.root, 'ls-tree', '-r', '--name-only', 'HEAD', '.studio-local'), '');
+  const publicRaw = await store.raw('writing', 'chosen');
+  assert.match(publicRaw, /1998-01-03/); assert.doesNotMatch(publicRaw, /firstPublishedAt|studio-media/);
+  assert.ok(await fs.readFile(path.join(f.root, 'dist/writing/temporary-test-fixture/index.html')));
+  assert.match(await fs.readFile(path.join(f.root, 'dist/writing/temporary-test-fixture/index.html'), 'utf8'), /January 3, 1998/);
+  assert.doesNotMatch(await fs.readFile(path.join(f.root, 'dist/rss.xml'), 'utf8'), /<pubDate>|PRIVATE_CANARY/);
+  chosen = await store.load('writing', 'chosen');
+  assert.equal(chosen.hasDraft, false);
+  const revision = await store.save('writing', 'chosen', { ...chosen.data, title: 'PRIVATE_REVISION_TITLE', body: 'PRIVATE_REVISION_BODY' }, chosen.version, chosen.baseHash);
+  assert.equal(await store.raw('writing', 'chosen'), publicRaw);
+  await command(f.root, 'npm', ['run', 'build']);
+  assert.doesNotMatch(await treeText(path.join(f.root, 'dist')), /PRIVATE_CANARY|PRIVATE_REVISION/);
+  assert.equal(await git(f.root, 'status', '--porcelain'), '');
+  const unpublished = await publisher.publish('writing', 'chosen', revision.version, true);
+  assert.equal(unpublished.state, 'pushed');
+  assert.equal(await store.raw('writing', 'chosen'), null);
+  assert.equal((await store.load('writing', 'chosen')).data.body, 'PRIVATE_REVISION_BODY');
+  assert.doesNotMatch(await treeText(path.join(f.root, 'dist')), /temporary-test-fixture|PRIVATE_REVISION|PRIVATE_CANARY/);
+  assert.equal((await store.load('writing', other.id)).data.title, 'PRIVATE_CANARY_OTHER');
+  await checkPublic(f.root, true);
+});
+
+test('build failures restore source and index; unrelated edits block publication', async t => {
+  const f = await fixture(); t.after(f.cleanup);
+  const store = new Store(f.root); await store.init();
+  const item = await store.save('writing', 'failed', entry(), 0);
+  const head = await git(f.root, 'rev-parse', 'HEAD');
+  const publisher = new Publisher(store, { build: async () => { throw new Error('Test build failure'); } });
+  await assert.rejects(publisher.publish('writing', 'failed', item.version), /Test build failure/);
+  assert.equal(await store.raw('writing', 'failed'), null);
+  assert.equal(await git(f.root, 'diff', '--cached', '--name-only'), '');
+  assert.equal(await git(f.root, 'rev-parse', 'HEAD'), head);
+  assert.equal((await store.load('writing', 'failed')).hasDraft, true);
+  await fs.writeFile(path.join(f.root, 'unrelated.txt'), 'Keep this file');
+  await assert.rejects(publisher.publish('writing', 'failed', item.version), /uncommitted/);
+  assert.equal(await fs.readFile(path.join(f.root, 'unrelated.txt'), 'utf8'), 'Keep this file');
+});
+
+test('rejected push stays committed and can be retried without another commit', async t => {
+  const f = await fixture(); t.after(f.cleanup);
+  const store = new Store(f.root); await store.init();
+  const item = await store.save('writing', 'pending', entry(), 0);
+  const hook = path.join(f.temp, 'remote.git/hooks/pre-receive');
+  await fs.writeFile(hook, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+  const publisher = new Publisher(store, { build: async () => {} });
+  const result = await publisher.publish('writing', 'pending', item.version);
+  assert.equal(result.state, 'committed');
+  const head = await git(f.root, 'rev-parse', 'HEAD');
+  const other = await store.save('writing', 'next', entry({ slug: 'next' }), 0);
+  await assert.rejects(publisher.publish('writing', 'next', other.version), /Retry push/);
+  await fs.unlink(hook);
+  assert.equal((await publisher.retry()).state, 'pushed');
+  assert.equal(await git(f.root, 'rev-parse', 'HEAD'), head);
+});
+
+test('inactive hero copy stays private and settings publish independently', async t => {
+  const f = await fixture(); t.after(f.cleanup);
+  const store = new Store(f.root); await store.init();
+  const home = await store.load('home', 'home');
+  const contact = await store.load('contact', 'contact');
+  await store.save('contact', 'contact', { email: 'private-canary@example.invalid', links: [] }, 0, contact.baseHash);
+  const draft = await store.save('home', 'home', { ...home.data, mode: 'quote', intro: 'PRIVATE_HIDDEN_INTRO', quote: 'Temporary visible quote' }, 0, home.baseHash);
+  const publisher = new Publisher(store, { build: async () => {} });
+  await publisher.publish('home', 'home', draft.version);
+  const published = JSON.parse(await store.raw('home', 'home'));
+  assert.equal(published.intro, ''); assert.equal(published.quote, 'Temporary visible quote');
+  assert.equal((await store.load('home', 'home')).data.intro, 'PRIVATE_HIDDEN_INTRO');
+  assert.doesNotMatch(await store.raw('contact', 'contact'), /private-canary/);
+  assert.equal((await git(f.root, 'show', '--pretty=', '--name-only', 'HEAD')), 'src/data/home.json');
+});
+
+test('outdated drafts, duplicate slugs and category removal cannot replace public source', async t => {
+  const f = await fixture(); t.after(f.cleanup); const store = new Store(f.root); await store.init();
+  await fs.writeFile(path.join(f.root, 'src/content/writing/one.md'), store.encode('writing', entry()));
+  await git(f.root, 'add', '--', 'src/content/writing/one.md'); await git(f.root, 'commit', '-m', 'Fixture'); await git(f.root, 'push');
+  const publisher = new Publisher(store, { build: async () => {} });
+  const duplicate = await store.save('writing', 'two', entry(), 0);
+  await assert.rejects(publisher.publish('writing', 'two', duplicate.version), /already published/);
+  const old = await store.load('writing', 'one');
+  await store.save('writing', 'one', { ...old.data, body: 'Private old revision' }, old.version, old.baseHash);
+  await fs.writeFile(path.join(f.root, 'src/content/writing/one.md'), store.encode('writing', entry({ body: 'Externally updated fixture' })));
+  await git(f.root, 'add', '--', 'src/content/writing/one.md'); await git(f.root, 'commit', '-m', 'External edit'); await git(f.root, 'push');
+  await assert.rejects(publisher.publish('writing', 'one', 1), /public source changed/);
+  const settings = await store.load('site', 'site');
+  const invalid = await store.save('site', 'site', { ...settings.data, categories: ['Football'] }, 0, settings.baseHash);
+  await assert.rejects(publisher.publish('site', 'site', invalid.version), /Unknown category/);
+});

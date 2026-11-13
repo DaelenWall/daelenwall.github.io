@@ -1,0 +1,35 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import EntryCard from '../../components/EntryCard.astro';
+import { site, writing } from '../../lib/content';
+const entries = await writing();
+---
+<Shell title="Writing">
+  <header class="page-heading"><div class="eyebrow"><span class="signal"></span>Archive</div><h1>Writing<span class="accent">.</span></h1><span class="heading-mark" aria-hidden="true">↙</span></header>
+  <form class="archive-tools" role="search" onsubmit="return false"><div class="category-filters" role="group" aria-label="Filter by category"><button type="button" data-filter="" aria-pressed="true">All</button>{site.categories.map(category => <button type="button" data-filter={category} aria-pressed="false">{category}</button>)}</div><div class="search-sort"><label class="search-label"><span class="sr-only">Search writing</span><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search writing" /></label><label><span class="sr-only">Sort articles</span><select id="sort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></label></div></form>
+  <p id="search-status" class="sr-only" role="status" aria-live="polite"></p>
+  <div class="entry-grid archive-grid" id="archive">{entries.map(entry => <EntryCard entry={entry} />)}</div>
+  <div class="empty-state" id="empty" hidden={entries.length > 0}><span class="empty-symbol" aria-hidden="true">✳</span><p>{entries.length ? 'No matching articles.' : 'No published articles.'}</p></div>
+  <noscript><p class="muted">Search and filters require JavaScript. All published articles are listed above.</p></noscript>
+  <script>
+    const cards = [...document.querySelectorAll<HTMLElement>('[data-entry]')];
+    const search = document.querySelector<HTMLInputElement>('#search')!;
+    const sort = document.querySelector<HTMLSelectElement>('#sort')!;
+    const filters = [...document.querySelectorAll<HTMLButtonElement>('[data-filter]')];
+    let category = new URLSearchParams(location.search).get('category') || '';
+    if (!filters.some(button => button.dataset.filter === category)) category = '';
+    function update() {
+      const query = search.value.trim().toLowerCase();
+      let count = 0;
+      cards.sort((a, b) => { const x = a.dataset.date || '', y = b.dataset.date || ''; return !x || !y ? (x ? -1 : y ? 1 : 0) : (sort.value === 'oldest' ? 1 : -1) * x.localeCompare(y); }).forEach(card => {
+        const show = (!category || card.dataset.category === category) && (!query || card.dataset.search?.includes(query));
+        card.hidden = !show; if (show) count++; document.querySelector('#archive')!.append(card);
+      });
+      filters.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filter === category)));
+      document.querySelector<HTMLElement>('#empty')!.hidden = count > 0;
+      document.querySelector('#search-status')!.textContent = `${count} ${count === 1 ? 'article' : 'articles'}`;
+    }
+    filters.forEach(button => button.addEventListener('click', () => { category = button.dataset.filter || ''; const target = new URL(location.href); if (category) target.searchParams.set('category', category); else target.searchParams.delete('category'); history.replaceState({}, '', target); update(); }));
+    search.addEventListener('input', update); sort.addEventListener('change', update); update();
+  </script>
+</Shell>

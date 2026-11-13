@@ -1,0 +1,15 @@
+---
+import { url } from '../lib/content';
+import { formatDate, readingTime } from '../../shared/markdown.mjs';
+const { entry, kind = 'writing', index } = Astro.props;
+const data = entry.data;
+---
+<article class:list={['entry-card', { 'project-card': kind === 'projects' }]} data-entry data-category={data.category} data-date={data.displayDate || ''} data-search={`${data.title} ${data.description} ${data.category} ${data.tags.join(' ')} ${entry.body || ''}`.toLowerCase()}>
+  <a class="entry-link" href={url(`${kind}/${data.slug}/`)}>
+    {data.coverImage && <div class="entry-image"><img src={url(data.coverImage)} alt={data.coverAlt} width="1000" height="640" loading="lazy" decoding="async" /></div>}
+    <div class="entry-body"><div class="entry-meta">{data.category && <span>{data.category}</span>}{data.displayDate && <time datetime={data.displayDate}>{formatDate(data.displayDate)}</time>}</div>
+    <h3>{data.title}<span class="entry-arrow" aria-hidden="true">↗</span></h3>
+    {data.description && <p>{data.description}</p>}
+    <div class="entry-bottom">{kind === 'writing' ? <span>{readingTime(entry.body)} min read</span> : <span>{data.tags.join(' / ')}</span>}<span aria-hidden="true">{index !== undefined ? String(index + 1).padStart(2, '0') : '↗'}</span></div></div>
+  </a>
+</article>

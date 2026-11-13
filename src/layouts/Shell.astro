@@ -1,0 +1,58 @@
+---
+import '@fontsource/instrument-serif/latin-400.css';
+import '@fontsource/instrument-serif/latin-400-italic.css';
+import '@fontsource-variable/dm-sans';
+import '../styles/global.css';
+import { site, url } from '../lib/content';
+const { title = '', description = site.description, image = site.socialImage, imageAlt = site.socialImageAlt, article = false } = Astro.props;
+const fullTitle = title ? `${title} — ${site.name}` : site.name;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const nav = [['Home', ''], ['Writing', 'writing/'], ['Projects', 'projects/'], ['About', 'about/'], ['Contact', 'contact/']];
+const active = (path: string) => path ? Astro.url.pathname.startsWith(url(path)) : Astro.url.pathname === url('');
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f1e9" />
+    <title>{fullTitle}</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
+    <link rel="alternate" type="application/rss+xml" title={`${site.name} — Writing`} href={url('rss.xml')} />
+    <link rel="sitemap" href={url('sitemap-index.xml')} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:type" content={article ? 'article' : 'website'} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={site.name} />
+    {description && <meta property="og:description" content={description} />}
+    {image && <><meta property="og:image" content={new URL(url(image), Astro.site)} /><meta property="og:image:alt" content={imageAlt} /></>}
+    <meta name="twitter:card" content={image ? 'summary_large_image' : 'summary'} />
+    <noscript><style is:global>@media(max-width:700px){.site-header{height:auto;min-height:100px;flex-wrap:wrap;padding:20px 0;gap:15px}.site-header nav{display:flex;position:static;flex-direction:row;flex-wrap:wrap;padding:0;gap:8px 20px;border:0;box-shadow:none;width:100%}.site-header nav a{font-size:12px;padding:5px 0}.menu-toggle{display:none}}</style></noscript>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="site-frame">
+      <header class="site-header">
+        <a class="wordmark" href={url('')} aria-label="Daelen Wall — Home">d<span class="wordmark-dot">w</span><span class="wordmark-plus" aria-hidden="true">✳</span></a>
+        <button class="menu-toggle" aria-expanded="false" aria-controls="navigation">Menu <span aria-hidden="true">+</span></button>
+        <nav id="navigation" aria-label="Main navigation">
+          {nav.map(([label, path]) => <a href={url(path)} aria-current={active(path) ? 'page' : undefined}>{site.navigation[label as keyof typeof site.navigation] || label}<span class="nav-dot" aria-hidden="true"></span></a>)}
+        </nav>
+      </header>
+      <main id="main"><slot /></main>
+      <footer class="site-footer"><a class="footer-name" href={url('')}>Daelen Wall<span aria-hidden="true">↗</span></a><div><a href={url('writing/')}>Writing</a><a href={url('contact/')}>Contact</a><a href={url('rss.xml')}>RSS <span aria-hidden="true">↗</span></a></div><a class="back-top" href="#main">Back to top ↑</a></footer>
+    </div>
+    <script>
+      const button = document.querySelector<HTMLButtonElement>('.menu-toggle');
+      button?.addEventListener('click', () => { const open = button.getAttribute('aria-expanded') !== 'true'; button.setAttribute('aria-expanded', String(open)); document.querySelector('#navigation')?.classList.toggle('is-open', open); });
+      document.addEventListener('keydown', event => { if (event.key === 'Escape' && button?.getAttribute('aria-expanded') === 'true') { button.setAttribute('aria-expanded', 'false'); document.querySelector('#navigation')?.classList.remove('is-open'); button.focus(); } });
+      const hero = document.querySelector<HTMLElement>('.hero');
+      if (hero && window.matchMedia('(prefers-reduced-motion: no-preference) and (pointer: fine)').matches) {
+        hero.addEventListener('pointermove', event => { const box = hero.getBoundingClientRect(); hero.style.setProperty('--pointer-x', `${(event.clientX - box.left - box.width / 2) * .02}px`); hero.style.setProperty('--pointer-y', `${(event.clientY - box.top - box.height / 2) * .02}px`); });
+        hero.addEventListener('pointerleave', () => { hero.style.setProperty('--pointer-x', '0px'); hero.style.setProperty('--pointer-y', '0px'); });
+      }
+    </script>
+  </body>
+</html>

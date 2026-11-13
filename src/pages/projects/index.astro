@@ -1,0 +1,7 @@
+---
+import Shell from '../../layouts/Shell.astro';
+import EntryCard from '../../components/EntryCard.astro';
+import { projects } from '../../lib/content';
+const entries = await projects();
+---
+<Shell title="Projects"><header class="page-heading"><div class="eyebrow"><span class="signal"></span>Selected work</div><h1>Projects<span class="accent">.</span></h1><span class="heading-mark" aria-hidden="true">↗</span></header>{entries.length ? <div class="entry-grid archive-grid">{entries.map(entry => <EntryCard entry={entry} kind="projects" />)}</div> : <div class="empty-state"><span class="empty-symbol" aria-hidden="true">✳</span><p>No published projects.</p></div>}</Shell>

@@ -1,0 +1,11 @@
+import { getCollection } from 'astro:content';
+import site from '../data/site.json';
+import home from '../data/home.json';
+import contact from '../data/contact.json';
+import { withBase } from '../../shared/paths.mjs';
+import { orderByDate } from '../../shared/markdown.mjs';
+export { site, home, contact };
+export const url = (path = '') => withBase(path, import.meta.env.BASE_URL);
+export const writing = async () => orderByDate(await getCollection('writing'));
+export const projects = async () => orderByDate(await getCollection('projects'));
+export const selected = (entries: any[], ids: string[]) => ids.map(id => entries.find(entry => entry.id === id)).filter(Boolean);
